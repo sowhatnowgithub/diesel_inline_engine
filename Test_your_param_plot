@@ -1,0 +1,48 @@
+%% --- Extract CAMSHAFT position ---
+t_cam = simlog.CamShaft.Parabolic_Cam_1.P.series.time;
+cam_pos = simlog.CamShaft.Parabolic_Cam_1.P.series.values;
+
+%% --- Extract Injector Needle / Chamber Position ---
+t_pos = simlog.Injector_1.Chamber.p_out.series.time;
+x_injector = simlog.Injector_1.Chamber.p_out.series.values('mm');
+
+%% --- Extract Mass Flows ---
+mdot_pump = simlog.Injection_Pump_1.Orifice.mdot_A.series.values('kg/s');
+mdot_injector = simlog.Injector_1.Needle_Valve.mdot_A.series.values('kg/s');
+
+
+%% ==========================================================
+%  PLOT 1 — Camshaft P
+%% ==========================================================
+figure;
+plot(t_cam, cam_pos, 'LineWidth', 1.5);
+grid on;
+xlabel('Time (s)');
+ylabel('Camshaft P');
+title('Camshaft Position (P)');
+
+
+%% ==========================================================
+%  PLOT 2 — Injector Position ONLY
+%% ==========================================================
+figure;
+plot(t_pos, x_injector, 'LineWidth', 1.5);
+grid on;
+xlabel('Time (s)');
+ylabel('Injector Position (mm)');
+title('Injector Needle / Chamber Position');
+
+
+%% ==========================================================
+%  PLOT 3 — Mass Flows
+%% ==========================================================
+figure;
+hold on;
+plot(t_pos, mdot_pump, 'LineWidth', 1.5);
+plot(t_pos, mdot_injector, 'LineWidth', 1.5);
+hold off;
+grid on;
+xlabel('Time (s)');
+ylabel('Mass Flow (kg/s)');
+title('Injector Pump & Injector Mass Flow');
+legend('Pump Mass Flow', 'Injector Mass Flow');
