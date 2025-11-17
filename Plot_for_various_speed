@@ -1,0 +1,106 @@
+%% Necessary things
+% find_system('dieselEngineModel','RegExp','on','Name','Engine_speed')
+
+
+%% Reset Simulink state
+close all;
+
+bdclose('all');
+load_system('dieselEngineModel');
+model = 'dieselEngineModel';
+speed_block = 'dieselEngineModel/Engine_speed';
+
+% Apply pending changes
+set_param(model, 'SimulationCommand', 'update');
+
+%% Engine speeds to simulate
+engine_speed_values = [100 150 250 350 450];
+
+%% Storage for results
+results = struct();
+
+%% LOOP: Simulate for each engine speed
+for i = 1:length(engine_speed_values)
+    
+    eng = engine_speed_values(i);
+
+    % --- Set engine speed value safely ---
+    set_param(speed_block, 'Value', num2str(eng));
+    set_param(model, 'SimulationCommand', 'update');  % required fix
+
+    % --- Run simulation ---
+    simOut = sim(model);
+    simlog = simOut.simlog;
+
+    % --- Extract data ---
+    results(i).speed = eng;
+
+    % Camshaft
+    results(i).t_cam = simlog.CamShaft.Parabolic_Cam_1.P.series.time;
+    results(i).cam_pos = simlog.CamShaft.Parabolic_Cam_1.P.series.values;
+
+    % Injector position
+    results(i).t_pos = simlog.Injector_1.Chamber.p_out.series.time;
+    results(i).x_inj = simlog.Injector_1.Chamber.p_out.series.values('mm');
+
+    % Mass flows
+    results(i).mdot_pump = simlog.Injection_Pump_1.Orifice.mdot_A.series.values('kg/s');
+    results(i).mdot_inj  = simlog.Injector_1.Needle_Valve.mdot_A.series.values('kg/s');
+
+end
+
+%% -------------------------------------------------------
+%% NOW PLOTTING (AFTER all simulations are done)
+%% -------------------------------------------------------
+
+%% PLOT 1 — Camshaft
+figure; hold on; grid on;
+title('Camshaft P for Engine Speeds');
+xlabel('Time (s)'); ylabel('P');
+
+for i = 1:length(results)
+    plot(results(i).t_cam, results(i).cam_pos, 'LineWidth', 1.4, ...
+        'DisplayName', sprintf('%d rad/s', results(i).speed));
+end
+
+legend('show');
+
+%% PLOT 2 — Injector Position
+figure; hold on; grid on;
+title('Injector Position');
+xlabel('Time (s)'); ylabel('Injector Position (mm)');
+
+for i = 1:length(results)
+    plot(results(i).t_pos, results(i).x_inj, 'LineWidth', 1.4, ...
+        'DisplayName', sprintf('%d rad/s', results(i).speed));
+end
+
+legend('show');
+
+%% PLOT 3 — Mass Flow
+figure; hold on; grid on;
+title('Mass Flow Rates');
+xlabel('Time (s)'); ylabel('Mass Flow (kg/s)');
+
+for i = 1:length(results)
+    plot(results(i).t_pos, results(i).mdot_inj, 'LineWidth', 1.4, ...
+        'DisplayName', sprintf('Injector %d rad/s', results(i).speed));
+    plot(results(i).t_pos, results(i).mdot_pump, '--', 'LineWidth', 1.4, ...
+        'DisplayName', sprintf('Pump %d rad/s', results(i).speed));
+end
+
+legend('show');
+
+%% PLOT 4 — Engine Speed ω(t)
+figure; hold on; grid on;
+title('Engine Speed \omega(t)');
+xlabel('Time (s)'); ylabel('\omega (rad/s)');
+
+for i = 1:length(results)
+    t = results(i).t_pos;                 % reuse injector time
+    w = results(i).speed * ones(size(t)); % constant omega profile
+    plot(t, w, 'LineWidth', 1.4, ...
+         'DisplayName', sprintf('%d rad/s', results(i).speed));
+end
+
+legend('show');
