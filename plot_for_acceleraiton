@@ -1,0 +1,56 @@
+%% -------------------------------------------
+% Robust engine-speed programmatic signal builder
+% ---------------------------------------------
+
+engine_speed_values = [100 250 350 450 100];   % Add ANY number of points
+segment_time = 0.25;                % Duration for each speed
+model = 'dieselEngineModel';
+
+% Build time vector
+N = numel(engine_speed_values);
+time_points = (0:N-1)' * segment_time;
+
+% Build Nx2 matrix for From Workspace
+engine_speed_input = [time_points engine_speed_values'];
+
+% Set simulation stop time
+set_param(model, 'StopTime', '1');
+
+%% -------------------------------------------
+% Run simulation
+% -------------------------------------------
+simOut = sim(model);
+simlog = simOut.simlog;
+
+%% -------------------------------------------
+% Extract signals (same as before)
+% -------------------------------------------
+
+% Camshaft
+t_cam = simlog.CamShaft.Parabolic_Cam_1.P.series.time;
+cam_pos = simlog.CamShaft.Parabolic_Cam_1.P.series.values;
+
+% Injector position
+t_pos = simlog.Injector_1.Chamber.p_out.series.time;
+x_injector = simlog.Injector_1.Chamber.p_out.series.values('mm');
+
+% Mass flows
+mdot_pump = simlog.Injection_Pump_1.Orifice.mdot_A.series.values('kg/s');
+mdot_injector = simlog.Injector_1.Needle_Valve.mdot_A.series.values('kg/s');
+
+%% -------------------------------------------
+% Plot results
+% -------------------------------------------
+
+figure; plot(t_cam, cam_pos); grid on;
+title('Camshaft P'); xlabel('Time (s)'); ylabel('Camshaft Position');
+
+figure; plot(t_pos, x_injector); grid on;
+title('Injector Position'); xlabel('Time (s)'); ylabel('Position (mm)');
+
+figure; hold on;
+plot(t_pos, mdot_pump, '--');
+plot(t_pos, mdot_injector);
+grid on;
+title('Mass Flow'); xlabel('Time (s)'); ylabel('kg/s');
+legend('Pump','Injector');
