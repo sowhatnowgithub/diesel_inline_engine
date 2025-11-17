@@ -1,0 +1,78 @@
+function [mdot_air_req, mdot_air_actual, AFR_measured, AFR_error] = ...
+         afr_air_demand(mdot_fuel, p_intake, T_intake, omega)
+
+% --------------------------------------------------------------
+% CONSTANTS
+% --------------------------------------------------------------
+AFR_target = 14.7;          % Stoichiometric AFR
+R_air = 287;                % J/(kg*K)
+V_cyl = 0.0005;             % 0.5 L cylinder volume
+thresh = 5e-4;              % fuel mass threshold (kg/cycle)
+N = 50;                     % number of samples in moving average
+
+% --------------------------------------------------------------
+% Persistent fuel buffer for averaging
+% --------------------------------------------------------------
+persistent fuel_hist idx initialized
+if isempty(initialized)
+    fuel_hist = zeros(N,1);
+    idx = 1;
+    initialized = true;
+end
+
+% --------------------------------------------------------------
+% Compute cycles per second (4-stroke)
+% --------------------------------------------------------------
+if omega > 0
+    cycles_per_sec = omega / (4*pi);
+else
+    cycles_per_sec = 0.0001;   % avoid divide-by-zero
+end
+
+% --------------------------------------------------------------
+% Fuel mass per cycle (direct from mdot_fuel)
+% --------------------------------------------------------------
+m_fuel_cycle = mdot_fuel / cycles_per_sec;
+
+% --------------------------------------------------------------
+% Apply moving-average correction
+% --------------------------------------------------------------
+if m_fuel_cycle > thresh
+    % store good value
+    fuel_hist(idx) = m_fuel_cycle;
+    idx = idx + 1;
+    if idx > N
+        idx = 1;
+    end
+    m_fuel_cycle_corr = m_fuel_cycle;
+else
+    % too small → use moving average
+    m_fuel_cycle_corr = mean(fuel_hist);
+end
+
+% --------------------------------------------------------------
+% Required air mass per cycle
+% --------------------------------------------------------------
+m_air_req_cycle = AFR_target * m_fuel_cycle_corr;
+mdot_air_req = m_air_req_cycle * cycles_per_sec;
+
+% --------------------------------------------------------------
+% Actual air mass from intake P,T
+% --------------------------------------------------------------
+rho_air = p_intake / (R_air * T_intake);
+m_air_actual_cycle = rho_air * V_cyl;
+mdot_air_actual = m_air_actual_cycle * cycles_per_sec;
+
+% --------------------------------------------------------------
+% AFR measured
+% --------------------------------------------------------------
+if m_fuel_cycle_corr > 0
+    AFR_measured = m_air_actual_cycle / m_fuel_cycle_corr;
+else
+    AFR_measured = AFR_target;
+end
+
+% --------------------------------------------------------------
+% Error
+% --------------------------------------------------------------
+AFR_error = AFR_target - AFR_measured;
